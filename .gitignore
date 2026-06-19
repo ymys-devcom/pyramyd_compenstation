@@ -1,0 +1,9 @@
+.env
+credentials/
+state/agent_state.json
+state/downloaded_*.xlsx
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.egg-info/

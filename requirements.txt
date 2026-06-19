@@ -1,0 +1,7 @@
+openai>=1.30
+python-dotenv>=1.0
+loguru>=0.7
+openpyxl>=3.1
+imapclient>=2.3
+pytest>=8.2
+pytest-mock>=3.14
