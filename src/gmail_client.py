@@ -135,25 +135,26 @@ class GmailClient:
                         logger.warning(f"Could not label message {mid}: {exc}")
         logger.debug(f"Labelled {len(message_ids)} message(s) → '{label}'")
 
-    def thread_has_reply_with_attachment(
+    def find_reply_with_attachment(
         self, original_message_id: str
-    ) -> bool:
+    ) -> Optional[str]:
         """
-        Return True if any email in INBOX has:
-          - An In-Reply-To or References header matching original_message_id
-          - At least one attachment (filename in MIME parts)
+        Search INBOX for a reply to original_message_id that has an attachment.
 
-        This is the reply detection loop — called every REPLY_POLL_INTERVAL_SECONDS.
+        Returns the reply's own Message-ID if found, or None if not found yet.
+
+        Returning the reply Message-ID (not just True/False) lets the coordinator
+        pass it as In-Reply-To on the approval email — so the approval lands in
+        the employee's existing thread, not as a new separate email.
         """
         imap = self._connect_imap()
         imap.select("INBOX")
 
-        # Search for replies referencing our original message
         clean_id = original_message_id.strip("<>")
         search_queries = [
             f'HEADER In-Reply-To "{original_message_id}"',
-            f'HEADER References "{clean_id}"',
             f'HEADER In-Reply-To "{clean_id}"',
+            f'HEADER References "{clean_id}"',
         ]
 
         found_uids: set[bytes] = set()
@@ -167,9 +168,8 @@ class GmailClient:
                 pass
 
         if not found_uids:
-            return False
+            return None
 
-        # Check each reply for an attachment
         for uid in found_uids:
             status, msg_data = imap.fetch(uid, "(RFC822)")
             if status != "OK" or not msg_data:
@@ -182,13 +182,19 @@ class GmailClient:
                     content_disposition = payload_part.get_content_disposition() or ""
                     filename = payload_part.get_filename()
                     if filename or "attachment" in content_disposition:
+                        reply_mid = msg.get("Message-ID", "").strip()
                         logger.info(
                             f"Found attachment '{filename}' in reply "
-                            f"to message {original_message_id}"
+                            f"(reply_mid={reply_mid})"
                         )
-                        return True
+                        # Fall back to original if reply has no Message-ID header
+                        return reply_mid or original_message_id
 
-        return False
+        return None
+
+    def thread_has_reply_with_attachment(self, original_message_id: str) -> bool:
+        """Backward-compatible wrapper used by unit tests."""
+        return self.find_reply_with_attachment(original_message_id) is not None
 
     def close(self) -> None:
         """Clean up IMAP connection."""

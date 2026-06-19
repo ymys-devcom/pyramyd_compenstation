@@ -81,7 +81,7 @@ def test_check_replies_sends_success_on_attachment():
 
 def test_check_replies_does_nothing_without_attachment():
     gmail = MagicMock()
-    gmail.thread_has_reply_with_attachment.return_value = False
+    gmail.find_reply_with_attachment.return_value = None
 
     coord = _make_coord(gmail=gmail)
     coord._state = {

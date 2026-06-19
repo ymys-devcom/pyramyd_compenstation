@@ -96,8 +96,10 @@ class ExpenseCoordinator:
         Poll INBOX for replies with attachments to any outreach_sent thread.
         On detecting an attachment:
           1. Mock-validate (always passes in POC).
-          2. Draft and send success email in reply.
-          3. Label both messages 'compensation'.
+          2. Draft and send success email as a reply to the EMPLOYEE's message
+             (In-Reply-To = employee's reply Message-ID) so it lands in the
+             same conversation on their side.
+          3. Label the success email 'compensation'.
           4. Update status to 'approved'.
         """
         for name, entry in list(self._state.items()):
@@ -106,10 +108,12 @@ class ExpenseCoordinator:
 
             original_mid = entry["message_id"]
 
-            if not self.gmail.thread_has_reply_with_attachment(original_mid):
+            # Returns employee's reply Message-ID if attachment found, else None
+            reply_mid = self.gmail.find_reply_with_attachment(original_mid)
+            if not reply_mid:
                 continue
 
-            logger.info(f"Receipt detected for {name}")
+            logger.info(f"Receipt detected for {name} (reply_mid={reply_mid})")
 
             # Mock validation — always approves in POC
             first_tx = entry.get("transactions", [{}])[0]
@@ -122,22 +126,24 @@ class ExpenseCoordinator:
             result = self.validator.validate(mock_tx, "uploaded_document")
             logger.info(f"Validation [{name}]: {result.reason}")
 
-            # Send success email as a reply in the same thread
+            # Send approval as a reply to the employee's message —
+            # In-Reply-To = their reply, References chain = their reply + original
             ch_stub = Cardholder(name=name, email=entry["email"], account_number="")
             subject, body = build_success_email(ch_stub)
+            references = f"{original_mid} {reply_mid}".strip()
             success_mid = self.gmail.send_email(
                 to=entry["email"],
-                subject=subject,
+                subject=f"Re: {subject}",
                 body=body,
-                in_reply_to=original_mid,
-                references=original_mid,
+                in_reply_to=reply_mid,
+                references=references,
             )
             self.gmail.label_thread([success_mid])
 
             entry["status"] = "approved"
             entry["approved_at"] = datetime.utcnow().isoformat()
             self._save_state()
-            logger.success(f"Approved — success email sent to {name}.")
+            logger.success(f"Approved — success email sent to {name} in their thread.")
 
     # ── Helpers ────────────────────────────────────────────────────────────
 
