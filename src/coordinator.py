@@ -1,27 +1,39 @@
 """
-Main orchestration loop for the CC Expense Coordinator.
+CC Expense Coordinator — orchestration engine v2.
 
-State machine per cardholder (persisted to JSON):
-    pending → outreach_sent → approved
-
-Idempotent: any cardholder already past 'pending' is skipped on
-process_new_statement(), so the agent can be safely restarted.
+State machine per cardholder:
+  pending
+    → AUTO_APPROVED_RECURRING      (all transactions whitelisted — no email)
+    → outreach_sent                (receipt request email sent)
+        → APPROVED                 (all validated on first reply — Eric, Todd)
+        → AWAITING_RESUBMISSION    (partial fail — Kim, Cory)
+            → APPROVED             (all validated on resubmission)
+            → MANUAL_REVIEW_REQUIRED  (Cory Bach: deadline passed)
 """
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 from loguru import logger
 
-from src.excel_parser import Cardholder, Transaction
-from src.email_templates import build_outreach_email, build_success_email
+from src.excel_parser import Cardholder
+from src.whitelist import is_whitelisted
+from src.email_templates import (
+    build_outreach_email,
+    build_success_email,
+    build_partial_fail_email,
+    build_escalation_notice_email,
+)
 
 if TYPE_CHECKING:
     from src.gmail_client import GmailClient
-    from src.receipt_validator import MockReceiptValidator
+    from src.receipt_validator import ScriptedReceiptValidator
+
+RESUBMIT_WINDOW_MINUTES = 5
+TERMINAL_STATES = {"APPROVED", "AUTO_APPROVED_RECURRING", "MANUAL_REVIEW_REQUIRED"}
 
 
 class ExpenseCoordinator:
@@ -29,11 +41,11 @@ class ExpenseCoordinator:
     def __init__(
         self,
         gmail: "GmailClient",
-        validator: "MockReceiptValidator",
+        validator: "ScriptedReceiptValidator",
         state_file: str,
     ) -> None:
-        self.gmail     = gmail
-        self.validator = validator
+        self.gmail      = gmail
+        self.validator  = validator
         self.state_file = state_file
         self._state: dict = self._load_state()
 
@@ -52,117 +64,208 @@ class ExpenseCoordinator:
         with open(self.state_file, "w") as f:
             json.dump(self._state, f, indent=2, default=str)
 
+    # ── Email helper — maintains full References chain ─────────────────────
+
+    def _send_and_track(
+        self,
+        entry: dict,
+        to: str,
+        subject: str,
+        body: str,
+        reply_to_mid: str | None = None,
+    ) -> str:
+        """
+        Send an email, update entry['last_agent_mid'] and the References chain.
+        reply_to_mid: the employee's most recent message ID (we're replying to them).
+        """
+        existing_refs = entry.get("references", entry.get("message_id", ""))
+        if reply_to_mid and reply_to_mid not in existing_refs:
+            references = f"{existing_refs} {reply_to_mid}".strip()
+        else:
+            references = existing_refs
+
+        in_reply_to = reply_to_mid or entry.get("last_agent_mid") or entry.get("message_id")
+
+        mid = self.gmail.send_email(
+            to=to,
+            subject=subject,
+            body=body,
+            in_reply_to=in_reply_to,
+            references=references,
+        )
+        self.gmail.label_thread([mid])
+        entry["last_agent_mid"] = mid
+        entry["references"] = f"{references} {mid}".strip()
+        return mid
+
     # ── Outreach pass ──────────────────────────────────────────────────────
 
     def process_new_statement(self, cardholders: list[Cardholder]) -> None:
         """
-        For each cardholder not yet contacted:
-          1. Draft personalised outreach email (OpenAI).
-          2. Send via SMTP.
-          3. Label the sent message 'compensation'.
-          4. Persist state (status=outreach_sent, message_id stored for reply tracking).
+        For each cardholder (no idempotency guard — always re-processes):
+          1. Split transactions into whitelisted / non-whitelisted.
+          2. If ALL whitelisted → AUTO_APPROVED_RECURRING, no email.
+          3. Otherwise → send outreach with only non-whitelisted transactions.
         """
         for ch in cardholders:
-            current_status = self._state.get(ch.name, {}).get("status", "pending")
-            if current_status != "pending":
-                logger.info(f"Skipping {ch.name} — already {current_status}")
+            non_wl = [tx for tx in ch.transactions if not is_whitelisted(tx.merchant_name)]
+            wl     = [tx for tx in ch.transactions if is_whitelisted(tx.merchant_name)]
+            wl_names = [tx.merchant_name for tx in wl]
+
+            if not non_wl:
+                logger.info(
+                    f"{ch.name}: all {len(wl)} transaction(s) auto-approved "
+                    f"(whitelist: {', '.join(set(wl_names))})"
+                )
+                self._state[ch.name] = {
+                    "name": ch.name, "email": ch.email,
+                    "status": "AUTO_APPROVED_RECURRING",
+                    "whitelisted_transactions": wl_names,
+                    "transactions": [],
+                    "sent_at": datetime.utcnow().isoformat(),
+                }
+                self._save_state()
                 continue
 
-            subject, body = build_outreach_email(ch)
-            message_id = self.gmail.send_email(
-                to=ch.email, subject=subject, body=body
+            # Send outreach with only non-whitelisted transactions
+            ch_non_wl = Cardholder(
+                name=ch.name, email=ch.email, account_number=ch.account_number,
+                transactions=non_wl,
             )
-            # Label the sent message
-            self.gmail.label_thread([message_id])
+            subject, body = build_outreach_email(ch_non_wl)
+            mid = self.gmail.send_email(to=ch.email, subject=subject, body=body)
+            self.gmail.label_thread([mid])
 
             self._state[ch.name] = {
-                "name": ch.name,
-                "email": ch.email,
+                "name": ch.name, "email": ch.email,
                 "status": "outreach_sent",
-                "message_id": message_id,      # Message-ID header for reply tracking
+                "message_id": mid,
+                "last_agent_mid": mid,
+                "last_processed_reply_mid": None,   # prevents double-processing same reply
+                "references": mid,
                 "sent_at": datetime.utcnow().isoformat(),
+                "reply_count": 0,
+                "resubmit_deadline": None,
+                "whitelisted_transactions": wl_names,
+                "failed_items": [],
                 "transactions": [
                     {"merchant_name": tx.merchant_name, "amount": tx.amount}
-                    for tx in ch.transactions
+                    for tx in non_wl
                 ],
             }
             self._save_state()
-            logger.success(f"Outreach sent → {ch.name} <{ch.email}>")
+
+            wl_note = f" ({len(wl)} auto-approved via whitelist)" if wl else ""
+            logger.success(f"Outreach sent → {ch.name} <{ch.email}>{wl_note}")
 
     # ── Reply-poll pass ────────────────────────────────────────────────────
 
     def check_for_replies(self) -> None:
         """
-        Poll INBOX for replies with attachments to any outreach_sent thread.
-        On detecting an attachment:
-          1. Mock-validate (always passes in POC).
-          2. Draft and send success email as a reply to the EMPLOYEE's message
-             (In-Reply-To = employee's reply Message-ID) so it lands in the
-             same conversation on their side.
-          3. Label the success email 'compensation'.
-          4. Update status to 'approved'.
+        Poll for employee replies with attachments.
+        Handles outreach_sent and AWAITING_RESUBMISSION states.
+        Prevents double-processing the same reply via last_processed_reply_mid.
         """
         for name, entry in list(self._state.items()):
-            if entry.get("status") != "outreach_sent":
+            status = entry.get("status")
+            if status not in ("outreach_sent", "AWAITING_RESUBMISSION"):
                 continue
 
-            original_mid = entry["message_id"]
+            # Search from last agent message so we catch replies to it
+            search_mid = entry.get("last_agent_mid") or entry.get("message_id")
+            reply_mid  = self.gmail.find_reply_with_attachment(search_mid)
 
-            # Returns employee's reply Message-ID if attachment found, else None
-            reply_mid = self.gmail.find_reply_with_attachment(original_mid)
             if not reply_mid:
                 continue
 
-            logger.info(f"Receipt detected for {name} (reply_mid={reply_mid})")
+            # Skip if we already processed this reply in a previous tick
+            if reply_mid == entry.get("last_processed_reply_mid"):
+                continue
 
-            # Mock validation — always approves in POC
-            first_tx = entry.get("transactions", [{}])[0]
-            mock_tx = Transaction(
-                account_name=name, account_number="",
-                allocation_code="", posting_date=None,
-                amount=float(first_tx.get("amount", 0)),
-                merchant_name=first_tx.get("merchant_name", ""),
-            )
-            result = self.validator.validate(mock_tx, "uploaded_document")
-            logger.info(f"Validation [{name}]: {result.reason}")
+            entry["reply_count"] = entry.get("reply_count", 0) + 1
+            entry["last_processed_reply_mid"] = reply_mid
+            reply_count = entry["reply_count"]
+            logger.info(f"Reply #{reply_count} detected for {name} (mid={reply_mid})")
 
-            # Send approval as a reply to the employee's message —
-            # In-Reply-To = their reply, References chain = their reply + original
             ch_stub = Cardholder(name=name, email=entry["email"], account_number="")
-            subject, body = build_success_email(ch_stub)
-            references = f"{original_mid} {reply_mid}".strip()
-            success_mid = self.gmail.send_email(
-                to=entry["email"],
-                subject=f"Re: {subject}",
-                body=body,
-                in_reply_to=reply_mid,
-                references=references,
-            )
-            self.gmail.label_thread([success_mid])
 
-            entry["status"] = "approved"
-            entry["approved_at"] = datetime.utcnow().isoformat()
-            self._save_state()
-            logger.success(f"Approved — success email sent to {name} in their thread.")
+            # ── Deadline check BEFORE validation (Scenario D Branch 2) ─────
+            deadline_str = entry.get("resubmit_deadline")
+            if deadline_str and status == "AWAITING_RESUBMISSION":
+                deadline = datetime.fromisoformat(deadline_str)
+                if datetime.utcnow() > deadline:
+                    logger.warning(
+                        f"{name}: resubmit deadline passed "
+                        f"({deadline.isoformat()}) — escalating"
+                    )
+                    subj, body = build_escalation_notice_email(ch_stub)
+                    self._send_and_track(
+                        entry, entry["email"],
+                        f"Re: {subj}", body, reply_to_mid=reply_mid,
+                    )
+                    entry["status"] = "MANUAL_REVIEW_REQUIRED"
+                    self._save_state()
+                    logger.warning(f"{name} → MANUAL_REVIEW_REQUIRED")
+                    continue
 
-    # ── Helpers ────────────────────────────────────────────────────────────
+            # ── Scripted validation ────────────────────────────────────────
+            result = self.validator.validate(name, reply_count)
+
+            if result.approved:
+                subj, body = build_success_email(ch_stub)
+                self._send_and_track(
+                    entry, entry["email"],
+                    f"Re: {subj}", body, reply_to_mid=reply_mid,
+                )
+                entry["status"] = "APPROVED"
+                entry["approved_at"] = datetime.utcnow().isoformat()
+                self._save_state()
+                logger.success(f"{name} → APPROVED")
+
+            else:
+                # Partial fail — ask for resubmission
+                entry["failed_items"] = result.failed_items
+                subj, body = build_partial_fail_email(ch_stub, result.failed_items)
+                self._send_and_track(
+                    entry, entry["email"],
+                    f"Re: {subj}", body, reply_to_mid=reply_mid,
+                )
+                entry["status"] = "AWAITING_RESUBMISSION"
+
+                # Set deadline only for Cory Bach
+                if name == "CORY BACH":
+                    deadline = datetime.utcnow() + timedelta(minutes=RESUBMIT_WINDOW_MINUTES)
+                    entry["resubmit_deadline"] = deadline.isoformat()
+                    logger.info(
+                        f"{name}: resubmit deadline set → {deadline.isoformat()} "
+                        f"({RESUBMIT_WINDOW_MINUTES} min)"
+                    )
+
+                self._save_state()
+                logger.info(
+                    f"{name} → AWAITING_RESUBMISSION "
+                    f"({len(result.failed_items)} item(s) failed)"
+                )
+
+    # ── Status helpers ─────────────────────────────────────────────────────
 
     def all_resolved(self) -> bool:
-        """True when every tracked cardholder is in a terminal state."""
         if not self._state:
             return False
-        return all(
-            e.get("status") in ("approved", "escalated")
-            for e in self._state.values()
-        )
+        return all(e.get("status") in TERMINAL_STATES for e in self._state.values())
 
     def print_status(self) -> None:
-        """Print a human-readable status table."""
-        print(f"\n{'Cardholder':<25} {'Status':<16} {'Sent at'}")
-        print("-" * 70)
+        print(f"\n{'Cardholder':<25} {'Status':<28} {'Info'}")
+        print("-" * 85)
         for name, entry in self._state.items():
-            print(
-                f"{name:<25} {entry.get('status', '?'):<16} "
-                f"{entry.get('sent_at', '—')[:19]}"
-            )
+            status = entry.get("status", "?")
+            info = ""
+            if status == "AWAITING_RESUBMISSION":
+                deadline = entry.get("resubmit_deadline", "")
+                info = f"deadline={deadline[:19]}" if deadline else ""
+            elif status == "AUTO_APPROVED_RECURRING":
+                info = f"whitelist: {len(entry.get('whitelisted_transactions', []))} tx"
+            elif status == "APPROVED":
+                info = f"approved_at={entry.get('approved_at', '')[:19]}"
+            print(f"{name:<25} {status:<28} {info}")
         print()

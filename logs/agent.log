@@ -1,0 +1,128 @@
+[32m11:09:01[0m | [1mINFO    [0m | Watching folder 'C:\Users\yaroslav.mys\projects\pyramyd_compenstation\data' every 10s. Drop a .xlsx file there to trigger the agent. Ctrl+C to stop.
+[32m11:09:11[0m | [1mINFO    [0m | New file: transactions_sample.xlsx
+[32m11:09:11[0m | [1mINFO    [0m | Copied 'C:\Users\yaroslav.mys\Projects\pyramyd_compenstation\data\transactions_sample.xlsx' → 'state/downloaded_transactions_sample.xlsx'
+[32m11:09:19[0m | [1mINFO    [0m | Sent → yaroslav.mys+1@devcom.com | subject='Action Required: Receipt Submission for Credit Card Transact' | id=<42fa0793ffdf472085d1c55121d0da2a@ai.devcom.com>
+[32m11:09:20[0m | [32m[1mSUCCESS [0m | Outreach sent → CORY BACH <yaroslav.mys+1@devcom.com>
+[32m11:09:24[0m | [1mINFO    [0m | Sent → yaroslav.mys+2@devcom.com | subject='Action Required: Receipt Submission for Credit Card Transact' | id=<1277aa17fdd14444a171f22df1870b1b@ai.devcom.com>
+[32m11:09:25[0m | [32m[1mSUCCESS [0m | Outreach sent → TODD BAHR <yaroslav.mys+2@devcom.com>
+[32m11:09:29[0m | [1mINFO    [0m | Sent → yaroslav.mys+3@devcom.com | subject='Action Required: Receipt Submission for Credit Card Transact' | id=<ddfd1f7f988e43a781efbeabc7ea8fbc@ai.devcom.com>
+[32m11:09:29[0m | [32m[1mSUCCESS [0m | Outreach sent → ARIEL BENEWIAT <yaroslav.mys+3@devcom.com>
+
+Cardholder                Status           Sent at
+----------------------------------------------------------------------
+CORY BACH                 outreach_sent    2026-06-19T08:09:20
+TODD BAHR                 outreach_sent    2026-06-19T08:09:25
+ARIEL BENEWIAT            outreach_sent    2026-06-19T08:09:29
+
+[32m11:40:43[0m | [1mINFO    [0m | New file: transactions_sample2.xlsx
+[32m11:40:43[0m | [1mINFO    [0m | Copied 'C:\Users\yaroslav.mys\Projects\pyramyd_compenstation\data\transactions_sample2.xlsx' → 'state/downloaded_transactions_sample2.xlsx'
+[32m11:40:44[0m | [1mINFO    [0m | Skipping CORY BACH — already outreach_sent
+[32m11:40:44[0m | [1mINFO    [0m | Skipping TODD BAHR — already outreach_sent
+[32m11:40:44[0m | [1mINFO    [0m | Skipping ARIEL BENEWIAT — already outreach_sent
+
+Cardholder                Status           Sent at
+----------------------------------------------------------------------
+CORY BACH                 outreach_sent    2026-06-19T08:09:20
+TODD BAHR                 outreach_sent    2026-06-19T08:09:25
+ARIEL BENEWIAT            outreach_sent    2026-06-19T08:09:29
+
+[32m14:34:54[0m | [1mINFO    [0m | New file: transactions_sample3.xlsx
+[32m14:34:54[0m | [1mINFO    [0m | Copied 'C:\Users\yaroslav.mys\Projects\pyramyd_compenstation\data\transactions_sample3.xlsx' → 'state/downloaded_transactions_sample3.xlsx'
+[32m14:34:55[0m | [1mINFO    [0m | Skipping CORY BACH — already outreach_sent
+[32m14:34:55[0m | [1mINFO    [0m | Skipping TODD BAHR — already outreach_sent
+[32m14:34:55[0m | [1mINFO    [0m | Skipping ARIEL BENEWIAT — already outreach_sent
+
+Cardholder                Status           Sent at
+----------------------------------------------------------------------
+CORY BACH                 outreach_sent    2026-06-19T08:09:20
+TODD BAHR                 outreach_sent    2026-06-19T08:09:25
+ARIEL BENEWIAT            outreach_sent    2026-06-19T08:09:29
+
+[32m14:43:37[0m | [1mINFO    [0m | New file: transactions_sample4.xlsx
+[32m14:43:37[0m | [1mINFO    [0m | Copied 'C:\Users\yaroslav.mys\Projects\pyramyd_compenstation\data\transactions_sample4.xlsx' → 'state/downloaded_transactions_sample4.xlsx'
+[32m14:43:38[0m | [1mINFO    [0m | Skipping CORY BACH — already outreach_sent
+[32m14:43:38[0m | [1mINFO    [0m | Skipping TODD BAHR — already outreach_sent
+[32m14:43:38[0m | [1mINFO    [0m | Skipping ARIEL BENEWIAT — already outreach_sent
+
+Cardholder                Status           Sent at
+----------------------------------------------------------------------
+CORY BACH                 outreach_sent    2026-06-19T08:09:20
+TODD BAHR                 outreach_sent    2026-06-19T08:09:25
+ARIEL BENEWIAT            outreach_sent    2026-06-19T08:09:29
+
+[32m14:51:33[0m | [1mINFO    [0m | New file: transactions_sample5.xlsx
+[32m14:51:33[0m | [1mINFO    [0m | Copied 'C:\Users\yaroslav.mys\Projects\pyramyd_compenstation\data\transactions_sample5.xlsx' → 'state/downloaded_transactions_sample5.xlsx'
+[32m14:51:34[0m | [1mINFO    [0m | Skipping CORY BACH — already outreach_sent
+[32m14:51:34[0m | [1mINFO    [0m | Skipping TODD BAHR — already outreach_sent
+[32m14:51:34[0m | [1mINFO    [0m | Skipping ARIEL BENEWIAT — already outreach_sent
+
+Cardholder                Status           Sent at
+----------------------------------------------------------------------
+CORY BACH                 outreach_sent    2026-06-19T08:09:20
+TODD BAHR                 outreach_sent    2026-06-19T08:09:25
+ARIEL BENEWIAT            outreach_sent    2026-06-19T08:09:29
+
+[32m14:57:46[0m | [1mINFO    [0m | New file: transactions_sample6.xlsx
+[32m14:57:46[0m | [1mINFO    [0m | Copied 'C:\Users\yaroslav.mys\Projects\pyramyd_compenstation\data\transactions_sample6.xlsx' → 'state/downloaded_transactions_sample6.xlsx'
+[32m14:57:47[0m | [1mINFO    [0m | Skipping CORY BACH — already outreach_sent
+[32m14:57:47[0m | [1mINFO    [0m | Skipping TODD BAHR — already outreach_sent
+[32m14:57:47[0m | [1mINFO    [0m | Skipping ARIEL BENEWIAT — already outreach_sent
+
+Cardholder                Status           Sent at
+----------------------------------------------------------------------
+CORY BACH                 outreach_sent    2026-06-19T08:09:20
+TODD BAHR                 outreach_sent    2026-06-19T08:09:25
+ARIEL BENEWIAT            outreach_sent    2026-06-19T08:09:29
+
+[32m15:46:19[0m | [1mINFO    [0m | New file: transactions_sample7.xlsx
+[32m15:46:19[0m | [1mINFO    [0m | Copied 'C:\Users\yaroslav.mys\Projects\pyramyd_compenstation\data\transactions_sample7.xlsx' → 'state/downloaded_transactions_sample7.xlsx'
+[32m15:46:20[0m | [1mINFO    [0m | Skipping CORY BACH — already outreach_sent
+[32m15:46:20[0m | [1mINFO    [0m | Skipping TODD BAHR — already outreach_sent
+[32m15:46:20[0m | [1mINFO    [0m | Skipping ARIEL BENEWIAT — already outreach_sent
+
+Cardholder                Status           Sent at
+----------------------------------------------------------------------
+CORY BACH                 outreach_sent    2026-06-19T08:09:20
+TODD BAHR                 outreach_sent    2026-06-19T08:09:25
+ARIEL BENEWIAT            outreach_sent    2026-06-19T08:09:29
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\yaroslav.mys\projects\pyramyd_compenstation\src\agent.py", line 155, in <module>
+    main()
+  File "C:\Users\yaroslav.mys\projects\pyramyd_compenstation\src\agent.py", line 149, in main
+    run_watch_drive()
+  File "C:\Users\yaroslav.mys\projects\pyramyd_compenstation\src\agent.py", line 106, in run_watch_drive
+    coord.check_for_replies()
+  File "C:\Users\yaroslav.mys\projects\pyramyd_compenstation\src\coordinator.py", line 109, in check_for_replies
+    original_mid = entry["message_id"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yaroslav.mys\projects\pyramyd_compenstation\src\gmail_client.py", line 148, in thread_has_reply_with_attachment
+    the employee's existing thread, not as a new separate email.
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yaroslav.mys\projects\pyramyd_compenstation\src\gmail_client.py", line 93, in _connect_imap
+    imap = imaplib.IMAP4_SSL(config.IMAP_HOST, config.IMAP_PORT)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\imaplib.py", line 1332, in __init__
+    IMAP4.__init__(self, host, port, timeout)
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\imaplib.py", line 205, in __init__
+    self.open(host, port, timeout)
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\imaplib.py", line 1345, in open
+    IMAP4.open(self, host, port, timeout)
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\imaplib.py", line 315, in open
+    self.sock = self._create_socket(timeout)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\imaplib.py", line 1335, in _create_socket
+    sock = IMAP4._create_socket(self, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\imaplib.py", line 305, in _create_socket
+    return socket.create_connection(address)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\socket.py", line 839, in create_connection
+    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\yaroslav.mys\AppData\Roaming\uv\python\cpython-3.11-windows-x86_64-none\Lib\socket.py", line 974, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11001] getaddrinfo failed

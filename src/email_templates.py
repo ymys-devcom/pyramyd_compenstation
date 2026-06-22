@@ -32,6 +32,8 @@ def _call_openai(system: str, user_prompt: str, max_tokens: int = 400) -> str:
     return (resp.choices[0].message.content or "").strip()
 
 
+# ── System prompts ─────────────────────────────────────────────────────────
+
 OUTREACH_SYSTEM = """\
 You write clear, professional, friendly emails on behalf of a Finance / AP team.
 You are given a list of company credit card transactions that an employee needs
@@ -48,6 +50,24 @@ Tell the employee their receipt / confirmation document has been received and
 their expense compensation request has been approved. Keep it under 80 words.
 Do NOT include a subject line in the body — body text only.
 Sign as "The Finance Team"."""
+
+PARTIAL_FAIL_SYSTEM = """\
+You write clear, professional emails on behalf of a Finance / AP team.
+The employee submitted receipts but some could not be matched to transactions.
+Write a brief email (under 120 words) that:
+1. Thanks them for submitting.
+2. Lists the specific transactions whose receipts could not be found or parsed.
+3. Asks them to reply to THIS email with the missing receipts attached.
+Do NOT include a subject line — body only. Sign as "The Finance Team"."""
+
+ESCALATION_NOTICE_SYSTEM = """\
+You write professional, empathetic emails on behalf of a Finance / AP team.
+The employee did not resubmit missing receipts within the required timeframe.
+Write a brief email (under 80 words) informing them:
+1. The resubmission window has passed.
+2. Their case has been escalated to the support team for manual review.
+3. They may be contacted by the team directly.
+Do NOT include a subject line — body only. Sign as "The Finance Team"."""
 
 
 def build_outreach_email(cardholder: Cardholder) -> tuple[str, str]:
@@ -79,4 +99,31 @@ def build_success_email(cardholder: Cardholder) -> tuple[str, str]:
         max_tokens=200,
     )
     subject = f"Expense Approved — Receipt Received for {cardholder.name}"
+    return subject, body
+
+
+def build_partial_fail_email(
+    cardholder: Cardholder, failed_items: list[str]
+) -> tuple[str, str]:
+    """Return (subject, body) for the partial-fail / resubmission-request email."""
+    first_name = cardholder.name.split()[0].capitalize()
+    items_block = "\n".join(f"  • {item}" for item in failed_items)
+    user_prompt = (
+        f"Employee first name: {first_name}\n\n"
+        f"Transactions whose receipts could NOT be found or parsed:\n{items_block}"
+    )
+    body = _call_openai(PARTIAL_FAIL_SYSTEM, user_prompt, max_tokens=400)
+    subject = f"Receipt Resubmission Required — {cardholder.name}"
+    return subject, body
+
+
+def build_escalation_notice_email(cardholder: Cardholder) -> tuple[str, str]:
+    """Return (subject, body) for the escalation notice sent to the employee."""
+    first_name = cardholder.name.split()[0].capitalize()
+    body = _call_openai(
+        ESCALATION_NOTICE_SYSTEM,
+        f"Employee first name: {first_name}",
+        max_tokens=200,
+    )
+    subject = f"Case Escalated — {cardholder.name}"
     return subject, body
