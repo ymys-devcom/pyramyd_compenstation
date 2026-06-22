@@ -70,14 +70,20 @@ class ExpenseCoordinator:
         self,
         entry: dict,
         to: str,
-        subject: str,
         body: str,
         reply_to_mid: str | None = None,
     ) -> str:
         """
-        Send an email, update entry['last_agent_mid'] and the References chain.
-        reply_to_mid: the employee's most recent message ID (we're replying to them).
+        Send an email in the existing thread and update tracking fields.
+
+        Subject is ALWAYS entry['thread_subject'] — the original outreach subject
+        prefixed with 'Re:'. This is what keeps all messages in the same Gmail thread.
+        Changing the subject mid-thread causes Gmail to split it into a new conversation.
+
+        reply_to_mid: the employee's most recent message ID (In-Reply-To).
         """
+        subject = entry.get("thread_subject", "Re: Expense Compensation")
+
         existing_refs = entry.get("references", entry.get("message_id", ""))
         if reply_to_mid and reply_to_mid not in existing_refs:
             references = f"{existing_refs} {reply_to_mid}".strip()
@@ -141,8 +147,9 @@ class ExpenseCoordinator:
                 "status": "outreach_sent",
                 "message_id": mid,
                 "last_agent_mid": mid,
-                "last_processed_reply_mid": None,   # prevents double-processing same reply
+                "last_processed_reply_mid": None,
                 "references": mid,
+                "thread_subject": f"Re: {subject}",  # ALL future replies use this subject
                 "sent_at": datetime.utcnow().isoformat(),
                 "reply_count": 0,
                 "resubmit_deadline": None,
@@ -201,7 +208,7 @@ class ExpenseCoordinator:
                     subj, body = build_escalation_notice_email(ch_stub)
                     self._send_and_track(
                         entry, entry["email"],
-                        f"Re: {subj}", body, reply_to_mid=reply_mid,
+                        body, reply_to_mid=reply_mid,
                     )
                     entry["status"] = "MANUAL_REVIEW_REQUIRED"
                     self._save_state()
@@ -215,7 +222,7 @@ class ExpenseCoordinator:
                 subj, body = build_success_email(ch_stub)
                 self._send_and_track(
                     entry, entry["email"],
-                    f"Re: {subj}", body, reply_to_mid=reply_mid,
+                    body, reply_to_mid=reply_mid,
                 )
                 entry["status"] = "APPROVED"
                 entry["approved_at"] = datetime.utcnow().isoformat()
@@ -228,7 +235,7 @@ class ExpenseCoordinator:
                 subj, body = build_partial_fail_email(ch_stub, result.failed_items)
                 self._send_and_track(
                     entry, entry["email"],
-                    f"Re: {subj}", body, reply_to_mid=reply_mid,
+                    body, reply_to_mid=reply_mid,
                 )
                 entry["status"] = "AWAITING_RESUBMISSION"
 
