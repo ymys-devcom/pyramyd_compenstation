@@ -41,32 +41,58 @@ _PARTIAL_FAIL_ITEMS: dict[str, list[str]] = {
 class ScriptedReceiptValidator:
     """
     Validates receipts using a deterministic script per employee name.
-    reply_count is 1-indexed: 1 = first reply from employee, 2 = second, etc.
-    Deadline enforcement (Cory Bach branch 2) is handled by the coordinator.
+    reply_count is 1-indexed: 1 = first reply, 2 = second, etc.
+
+    Cory Bach flow (3-reply path):
+      reply 1 → partial fail (no deadline yet)
+      reply 2 → partial fail again  ← coordinator sets 5-min deadline here
+      reply 3 → approved            ← coordinator checks deadline before calling this
+
+    Kim Watroba flow (2-reply path):
+      reply 1 → partial fail
+      reply 2 → approved
+
+    Eric Wilson / Todd Bahr (1-reply path):
+      reply 1 → approved
     """
 
     def validate(self, employee_name: str, reply_count: int) -> ValidationResult:
         fail_items = _PARTIAL_FAIL_ITEMS.get(employee_name, [])
 
-        # Employees not in fail map → always approve on first reply
         if not fail_items:
             return ValidationResult(
                 approved=True,
                 reason=f"All receipts validated for {employee_name} (reply {reply_count}).",
             )
 
-        # Scripted partial fail on reply 1
-        if reply_count == 1:
+        # Kim: fail on reply 1, approve on reply 2
+        if employee_name == "KIM WATROBA":
+            if reply_count == 1:
+                return ValidationResult(
+                    approved=False,
+                    failed_items=list(fail_items),
+                    reason=f"Partial fail on reply {reply_count}.",
+                )
             return ValidationResult(
-                approved=False,
-                failed_items=list(fail_items),
-                reason=(
-                    f"Partial fail on reply {reply_count}: "
-                    f"{len(fail_items)} item(s) could not be parsed."
-                ),
+                approved=True,
+                reason=f"All receipts validated for {employee_name} (reply {reply_count}).",
             )
 
-        # Reply 2+ → approve (deadline check happens in coordinator before this)
+        # Cory: fail on reply 1 AND reply 2, approve on reply 3+
+        # (deadline check for reply 3 is handled by coordinator before calling here)
+        if employee_name == "CORY BACH":
+            if reply_count <= 2:
+                return ValidationResult(
+                    approved=False,
+                    failed_items=list(fail_items),
+                    reason=f"Partial fail on reply {reply_count}.",
+                )
+            return ValidationResult(
+                approved=True,
+                reason=f"All receipts validated for {employee_name} (reply {reply_count}).",
+            )
+
+        # Default: approve on first reply
         return ValidationResult(
             approved=True,
             reason=f"All receipts validated for {employee_name} (reply {reply_count}).",

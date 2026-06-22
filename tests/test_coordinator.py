@@ -112,8 +112,32 @@ def test_kim_watroba_partial_fail_then_approved():
     assert coord._state["KIM WATROBA"]["status"] == "APPROVED"
 
 
+def test_cory_bach_reply2_sets_deadline_and_sends_warning():
+    """Scenario D: reply 2 → partial fail again + 5-min deadline set + warning email."""
+    gmail = MagicMock()
+    gmail.send_email.return_value = "<agent@x.com>"
+    coord = _make_coord(gmail=gmail)
+    coord._state = {"CORY BACH": {
+        "status": "AWAITING_RESUBMISSION", "email": "c@x.com", "name": "CORY BACH",
+        "message_id": "<mid@x.com>", "last_agent_mid": "<mid@x.com>",
+        "last_processed_reply_mid": "<reply1@c.com>",
+        "references": "<mid@x.com>", "reply_count": 1,
+        "resubmit_deadline": None,   # no deadline yet after reply 1
+        "thread_subject": "Re: Action Required",
+        "transactions": [], "failed_items": [],
+    }}
+    gmail.find_reply_with_attachment.return_value = "<reply2@c.com>"
+    with patch("src.coordinator.build_partial_fail_warning_email",
+               return_value=("Warning", "Body with warning")):
+        coord.check_for_replies()
+
+    assert coord._state["CORY BACH"]["status"] == "AWAITING_RESUBMISSION"
+    assert coord._state["CORY BACH"]["resubmit_deadline"] is not None  # deadline now set
+    assert coord._state["CORY BACH"]["reply_count"] == 2
+
+
 def test_cory_bach_within_deadline_approved():
-    """Scenario D Branch 1: Cory resubmits within 5 min → APPROVED."""
+    """Scenario D Branch 1: reply 3 within deadline → APPROVED."""
     gmail = MagicMock()
     gmail.send_email.return_value = "<agent@x.com>"
     coord = _make_coord(gmail=gmail)
@@ -121,18 +145,20 @@ def test_cory_bach_within_deadline_approved():
     coord._state = {"CORY BACH": {
         "status": "AWAITING_RESUBMISSION", "email": "c@x.com", "name": "CORY BACH",
         "message_id": "<mid@x.com>", "last_agent_mid": "<mid@x.com>",
-        "last_processed_reply_mid": "<reply1@c.com>",
-        "references": "<mid@x.com>", "reply_count": 1,
-        "resubmit_deadline": future, "transactions": [], "failed_items": [],
+        "last_processed_reply_mid": "<reply2@c.com>",
+        "references": "<mid@x.com>", "reply_count": 2,
+        "resubmit_deadline": future,
+        "thread_subject": "Re: Action Required",
+        "transactions": [], "failed_items": [],
     }}
-    gmail.find_reply_with_attachment.return_value = "<reply2@c.com>"
+    gmail.find_reply_with_attachment.return_value = "<reply3@c.com>"
     with patch("src.coordinator.build_success_email", return_value=("Approved", "Body")):
         coord.check_for_replies()
     assert coord._state["CORY BACH"]["status"] == "APPROVED"
 
 
 def test_cory_bach_past_deadline_escalated():
-    """Scenario D Branch 2: Cory resubmits after 5 min → MANUAL_REVIEW_REQUIRED."""
+    """Scenario D Branch 2: reply 3 after deadline → MANUAL_REVIEW_REQUIRED."""
     gmail = MagicMock()
     gmail.send_email.return_value = "<agent@x.com>"
     coord = _make_coord(gmail=gmail)
@@ -140,11 +166,13 @@ def test_cory_bach_past_deadline_escalated():
     coord._state = {"CORY BACH": {
         "status": "AWAITING_RESUBMISSION", "email": "c@x.com", "name": "CORY BACH",
         "message_id": "<mid@x.com>", "last_agent_mid": "<mid@x.com>",
-        "last_processed_reply_mid": "<reply1@c.com>",
-        "references": "<mid@x.com>", "reply_count": 1,
-        "resubmit_deadline": past, "transactions": [], "failed_items": [],
+        "last_processed_reply_mid": "<reply2@c.com>",
+        "references": "<mid@x.com>", "reply_count": 2,
+        "resubmit_deadline": past,
+        "thread_subject": "Re: Action Required",
+        "transactions": [], "failed_items": [],
     }}
-    gmail.find_reply_with_attachment.return_value = "<reply2@c.com>"
+    gmail.find_reply_with_attachment.return_value = "<reply3@c.com>"
     with patch("src.coordinator.build_escalation_notice_email",
                return_value=("Escalated", "Body")):
         coord.check_for_replies()

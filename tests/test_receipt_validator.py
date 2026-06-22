@@ -36,9 +36,16 @@ def test_cory_bach_partial_fail_reply1():
     assert "FAST PARK CLEVELAND FPR" in r.failed_items
 
 
-def test_cory_bach_approved_reply2():
-    # Deadline check is in coordinator; validator always approves reply 2
+def test_cory_bach_partial_fail_reply2():
+    """Cory fails on reply 2 too — deadline set by coordinator at this step."""
     r = v.validate("CORY BACH", reply_count=2)
+    assert r.approved is False
+    assert len(r.failed_items) == 6
+
+
+def test_cory_bach_approved_reply3():
+    """Cory approved on reply 3 — coordinator checks deadline before calling."""
+    r = v.validate("CORY BACH", reply_count=3)
     assert r.approved is True
 
 

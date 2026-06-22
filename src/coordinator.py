@@ -25,6 +25,7 @@ from src.email_templates import (
     build_outreach_email,
     build_success_email,
     build_partial_fail_email,
+    build_partial_fail_warning_email,
     build_escalation_notice_email,
 )
 
@@ -232,26 +233,29 @@ class ExpenseCoordinator:
             else:
                 # Partial fail — ask for resubmission
                 entry["failed_items"] = result.failed_items
-                subj, body = build_partial_fail_email(ch_stub, result.failed_items)
+
+                # Cory Bach reply 2: use warning email + start 5-min deadline
+                use_warning = (name == "CORY BACH" and reply_count == 2)
+                if use_warning:
+                    subj, body = build_partial_fail_warning_email(ch_stub, result.failed_items)
+                    deadline = datetime.utcnow() + timedelta(minutes=RESUBMIT_WINDOW_MINUTES)
+                    entry["resubmit_deadline"] = deadline.isoformat()
+                    logger.info(
+                        f"{name}: 5-min deadline set → {deadline.isoformat()}"
+                    )
+                else:
+                    subj, body = build_partial_fail_email(ch_stub, result.failed_items)
+
                 self._send_and_track(
                     entry, entry["email"],
                     body, reply_to_mid=reply_mid,
                 )
                 entry["status"] = "AWAITING_RESUBMISSION"
-
-                # Set deadline only for Cory Bach
-                if name == "CORY BACH":
-                    deadline = datetime.utcnow() + timedelta(minutes=RESUBMIT_WINDOW_MINUTES)
-                    entry["resubmit_deadline"] = deadline.isoformat()
-                    logger.info(
-                        f"{name}: resubmit deadline set → {deadline.isoformat()} "
-                        f"({RESUBMIT_WINDOW_MINUTES} min)"
-                    )
-
                 self._save_state()
                 logger.info(
                     f"{name} → AWAITING_RESUBMISSION "
-                    f"({len(result.failed_items)} item(s) failed)"
+                    f"({'with deadline' if use_warning else 'no deadline yet'}, "
+                    f"{len(result.failed_items)} item(s) failed)"
                 )
 
     # ── Status helpers ─────────────────────────────────────────────────────

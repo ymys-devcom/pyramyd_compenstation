@@ -60,6 +60,16 @@ Write a brief email (under 120 words) that:
 3. Asks them to reply to THIS email with the missing receipts attached.
 Do NOT include a subject line — body only. Sign as "The Finance Team"."""
 
+PARTIAL_FAIL_WARNING_SYSTEM = """\
+You write clear, professional emails on behalf of a Finance / AP team.
+The employee submitted receipts a second time but some still could not be matched.
+Write a brief email (under 140 words) that:
+1. Acknowledges this is their second attempt.
+2. Lists the specific transactions whose receipts still could not be found or parsed.
+3. Clearly states they have 5 minutes to reply with the correct receipts.
+4. Warns that if they do not respond within 5 minutes, the case will be escalated to the support team for manual review.
+Do NOT include a subject line — body only. Sign as "The Finance Team"."""
+
 ESCALATION_NOTICE_SYSTEM = """\
 You write professional, empathetic emails on behalf of a Finance / AP team.
 The employee did not resubmit missing receipts within the required timeframe.
@@ -105,7 +115,7 @@ def build_success_email(cardholder: Cardholder) -> tuple[str, str]:
 def build_partial_fail_email(
     cardholder: Cardholder, failed_items: list[str]
 ) -> tuple[str, str]:
-    """Return (subject, body) for the partial-fail / resubmission-request email."""
+    """Return (subject, body) for the first partial-fail / resubmission-request email."""
     first_name = cardholder.name.split()[0].capitalize()
     items_block = "\n".join(f"  • {item}" for item in failed_items)
     user_prompt = (
@@ -114,6 +124,25 @@ def build_partial_fail_email(
     )
     body = _call_openai(PARTIAL_FAIL_SYSTEM, user_prompt, max_tokens=400)
     subject = f"Receipt Resubmission Required — {cardholder.name}"
+    return subject, body
+
+
+def build_partial_fail_warning_email(
+    cardholder: Cardholder, failed_items: list[str]
+) -> tuple[str, str]:
+    """
+    Return (subject, body) for the second partial-fail email — includes the
+    5-minute deadline warning. Used only for Cory Bach after reply 2 fails.
+    """
+    first_name = cardholder.name.split()[0].capitalize()
+    items_block = "\n".join(f"  • {item}" for item in failed_items)
+    user_prompt = (
+        f"Employee first name: {first_name}\n\n"
+        f"Transactions whose receipts STILL could not be found or parsed "
+        f"(second attempt):\n{items_block}"
+    )
+    body = _call_openai(PARTIAL_FAIL_WARNING_SYSTEM, user_prompt, max_tokens=500)
+    subject = f"Final Notice: Receipt Resubmission Required — {cardholder.name}"
     return subject, body
 
 
