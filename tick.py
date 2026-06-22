@@ -101,7 +101,7 @@ def main() -> None:
     # ── 2. Poll for replies ────────────────────────────────────────────────
     if coord._state:
         pending = [n for n, e in coord._state.items()
-                   if e.get("status") == "outreach_sent"]
+                   if e.get("status") in ("outreach_sent", "AWAITING_RESUBMISSION")]
         if pending:
             logger.info(f"Checking replies for: {', '.join(pending)}")
             coord.check_for_replies()
